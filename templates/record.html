@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Record {{ i }} - {{ filename|e }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+    code, pre { background: #f6f6f6; padding: .2rem .35rem; border-radius: 6px; }
+    .field { padding: .35rem 0; border-bottom: 1px solid #eee; }
+    .tag { display: inline-block; min-width: 3.5rem; font-weight: 700; }
+    .muted { color: #555; }
+  </style>
+</head>
+<body>
+  <p><a href="{{ url_for('records') }}">&larr; Record list</a></p>
+  <h1>Record {{ i }} <span class="muted">/ {{ count - 1 }}</span></h1>
+  <p class="muted">{{ filename|e }}</p>
+
+  <h2>Control fields</h2>
+  {% for tag, val in control_fields %}
+    <div class="field"><span class="tag">{{ tag|e }}</span> <code>{{ val|e }}</code></div>
+  {% endfor %}
+
+  <h2>Data fields</h2>
+  {% for tag, ind1, ind2, subs in data_fields %}
+    <div class="field">
+      <span class="tag">{{ tag|e }}</span>
+      <span class="muted">[{{ ind1|e }} {{ ind2|e }}]</span>
+      {% for code, val in subs %}
+        <span><code>${{ code|e }}</code> {{ val|e }}</span>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</body>
+</html>

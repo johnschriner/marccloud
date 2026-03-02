@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Records - {{ filename|e }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: .5rem; border-bottom: 1px solid #eee; vertical-align: top; }
+  th { text-align: left; }
+  .muted { color: #555; }
+
+  /* ✅ readability improvements */
+  tbody tr:nth-child(even) { background: #fafafa; }
+  tbody tr:hover { background: #eef6ff; }
+  </style>
+</head>
+<body>
+  <p><a href="{{ url_for('index') }}">&larr; Upload</a></p>
+  <h1>Record list ({{ count }})</h1>
+  <p class="muted">{{ filename|e }} — {{ count }} record(s)</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>001</th>
+        <th>245</th>
+        <th>100/110</th>
+        <th>260/264/008</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td><a href="{{ url_for('record_detail', i=r.i) }}">{{ r.i }}</a></td>
+          <td>{{ r["001"]|e }}</td>
+          <td>{{ r["title"]|e }}</td>
+          <td>{{ r["main"]|e }}</td>
+          <td>{{ r["year"]|e }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

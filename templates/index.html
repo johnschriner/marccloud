@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>MARC Mini Editor (Day 1)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    .flash { padding: .75rem 1rem; border-radius: 8px; margin: .75rem 0; }
+    .ok { background: #eefbf0; border: 1px solid #bfe8c6; }
+    .error { background: #fff1f1; border: 1px solid #f0b4b4; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; }
+    .muted { color: #555; }
+    button { padding: .5rem .75rem; }
+    input[type=file] { width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>MARC Mini Editor</h1>
+  <p class="muted">Day 1: upload <b>.mrc</b>, parse up to {{ max_records }} records, browse.</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="flash {{ cat|e }}">{{ msg|e }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <h2>Upload</h2>
+    <p class="muted">Limits: {{ max_mb }} MB upload cap; first {{ max_records }} records loaded. Supported: {{ allowed_exts|e }}</p>
+    <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".mrc" required />
+      <p><button type="submit">Upload &amp; Parse</button></p>
+    </form>
+  </div>
+
+  {% if stored %}
+    <p>Current session file: <b>{{ stored.filename|e }}</b> ({{ stored.records|length }} records)</p>
+    <p><a href="{{ url_for('records') }}">Go to record list</a></p>
+  {% endif %}
+</body>
+</html>
