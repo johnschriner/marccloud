@@ -100,8 +100,17 @@ def first_subfield(rec: Record, tag: str, code: str) -> Optional[str]:
 
 
 def control(rec: Record, tag: str) -> Optional[str]:
-    cf = rec[tag]
-    return str(cf.value()) if cf is not None else None
+    try:
+        cf = rec[tag]
+    except KeyError:
+        return None
+    if cf is None:
+        return None
+    try:
+        return str(cf.value())
+    except Exception:
+        # extremely defensive: if cf isn't a control field in some edge case
+        return str(cf)
 
 
 def best_title(rec: Record) -> str:
