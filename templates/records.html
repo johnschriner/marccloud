@@ -4,174 +4,179 @@
   <meta charset="utf-8" />
   <title>Records</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <style>
     :root{
-      --bg: #0b1220;
-      --panel: rgba(255,255,255,0.06);
-      --panel-2: rgba(255,255,255,0.09);
-      --text: rgba(255,255,255,0.92);
-      --muted: rgba(255,255,255,0.70);
-      --border: rgba(255,255,255,0.12);
-      --shadow: 0 18px 60px rgba(0,0,0,0.35);
-      --ok-bg: rgba(16,185,129,0.14);
-      --ok-bd: rgba(16,185,129,0.35);
-      --err-bg: rgba(239,68,68,0.14);
-      --err-bd: rgba(239,68,68,0.35);
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: #e2e8f0;
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      --primary: #2563eb;
+      --ok-bg: #ecfdf5;
+      --ok-bd: #a7f3d0;
+      --err-bg: #fef2f2;
+      --err-bd: #fecaca;
+      --code-bg: #f1f5f9;
     }
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1000px 600px at 15% 0%, rgba(37,99,235,0.10), transparent 60%),
+                  radial-gradient(1000px 600px at 85% 10%, rgba(14,165,233,0.10), transparent 55%),
+                  var(--bg);
       color: var(--text);
-      background:
-        radial-gradient(900px 500px at 10% 10%, rgba(125,211,252,0.18), transparent 60%),
-        radial-gradient(900px 500px at 90% 20%, rgba(167,139,250,0.16), transparent 55%),
-        radial-gradient(900px 500px at 50% 90%, rgba(34,211,238,0.10), transparent 60%),
-        var(--bg);
-      min-height: 100vh;
     }
-
-    .wrap {
+    .wrap{
       max-width: 1200px;
       margin: 0 auto;
       padding: 2.25rem 1rem 3rem;
     }
-
-    header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1rem;
+    header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:1rem;
       margin-bottom: 1rem;
     }
-
-    .brand h1 {
-      margin: 0;
-      font-size: 1.9rem;
+    h1{
+      margin:0;
+      font-size: 1.8rem;
       letter-spacing: -0.02em;
       line-height: 1.1;
     }
-    .brand p {
-      margin: .35rem 0 0;
+    .sub{
+      margin: .4rem 0 0;
       color: var(--muted);
-      max-width: 70ch;
+      line-height: 1.45;
     }
-
-    .pillbar {
-      display: flex;
+    .pills{
+      display:flex;
+      gap:.5rem;
       flex-wrap: wrap;
-      gap: .5rem;
-      justify-content: flex-end;
-      margin-top: .15rem;
+      justify-content:flex-end;
+      margin-top: .25rem;
     }
-    .pill {
+    .pill{
       border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
+      background: rgba(255,255,255,0.8);
       color: var(--muted);
       border-radius: 999px;
       padding: .35rem .6rem;
       font-size: .85rem;
       white-space: nowrap;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
     }
-
-    .card {
-      background: var(--panel);
+    .card{
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px;
       box-shadow: var(--shadow);
-      padding: 1rem;
-      backdrop-filter: blur(10px);
+      padding: 1rem 1.05rem;
     }
-
-    .flash {
-      padding: .75rem .9rem;
-      border-radius: 12px;
-      margin: .75rem 0;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.05);
-    }
-    .flash.ok { background: var(--ok-bg); border-color: var(--ok-bd); }
-    .flash.error { background: var(--err-bg); border-color: var(--err-bd); }
-
-    .actions {
-      display: flex;
+    .actions{
+      display:flex;
       flex-wrap: wrap;
-      gap: .6rem;
-      margin-top: .8rem;
+      gap:.6rem;
+      margin-bottom: .8rem;
     }
-
-    .btn {
-      appearance: none;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: rgba(255,255,255,0.08);
+    .btn{
+      appearance:none;
+      border: 1px solid var(--border);
+      background: #fff;
       color: var(--text);
       border-radius: 12px;
       padding: .55rem .75rem;
       font-weight: 650;
       cursor: pointer;
-      transition: transform .05s ease, background .15s ease, border-color .15s ease;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: .5rem;
-      user-select: none;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:.5rem;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+      transition: transform .05s ease, box-shadow .15s ease, border-color .15s ease;
       line-height: 1.1;
     }
-    .btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.26); }
-    .btn:active { transform: translateY(1px); }
+    .btn:hover{
+      border-color: #cbd5e1;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+    }
+    .btn:active{ transform: translateY(1px); }
 
-    .small { font-size: .92rem; color: var(--muted); line-height: 1.35; }
-    .muted { color: var(--muted); }
+    .flash{
+      padding: .75rem .9rem;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #fff;
+      margin: .75rem 0;
+    }
+    .flash.ok{ background: var(--ok-bg); border-color: var(--ok-bd); }
+    .flash.error{ background: var(--err-bg); border-color: var(--err-bd); }
 
-    /* Table styling */
-    table { width: 100%; border-collapse: collapse; margin-top: .75rem; }
-    th, td { padding: .6rem .55rem; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
-    th { text-align: left; font-size: .9rem; color: rgba(255,255,255,0.78); font-weight: 700; }
-    tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
-    tbody tr:hover { background: rgba(125,211,252,0.08); }
+    .small{ color: var(--muted); font-size: .92rem; line-height: 1.45; }
 
-    a { color: rgba(255,255,255,0.88); }
-    a:hover { color: rgba(255,255,255,1.0); }
+    table{ width:100%; border-collapse: collapse; margin-top: .5rem; }
+    th, td{
+      padding: .6rem .55rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th{
+      text-align:left;
+      font-size: .9rem;
+      color: #334155;
+      font-weight: 800;
+    }
+    tbody tr:nth-child(even){ background: #f8fafc; }
+    tbody tr:hover{ background: #eef2ff; }
+    a{ color: #1d4ed8; text-decoration: none; }
+    a:hover{ text-decoration: underline; }
 
-    .pill-status {
-      display: inline-block;
+    .status{
+      display:inline-block;
       padding: .12rem .5rem;
       border-radius: 999px;
       font-size: 12px;
       border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      color: rgba(255,255,255,0.75);
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 650;
     }
-    .pill-in  { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.30); color: rgba(255,255,255,0.88); }
-    .pill-out { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.30); color: rgba(255,255,255,0.88); }
+    .status.in{
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #065f46;
+    }
+    .status.out{
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #7f1d1d;
+    }
+    tr.excluded td{ opacity: 0.78; }
+    tr.excluded td a{ opacity: 1; }
 
-    form { margin: 0; }
-    .btn-mini {
+    .btn-mini{
       padding: .35rem .55rem;
       border-radius: 10px;
-      font-weight: 650;
+      font-weight: 700;
       font-size: .9rem;
     }
 
-    /* Dim excluded rows a bit */
-    tr.excluded td { opacity: 0.72; }
-    tr.excluded td a { opacity: 0.92; }
-
-    code {
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.12);
+    code{
+      background: var(--code-bg);
+      border: 1px solid var(--border);
       padding: .08rem .35rem;
       border-radius: 8px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: .95em;
-      color: rgba(255,255,255,0.88);
+      color: #0f172a;
     }
 
-    @media (max-width: 900px) {
-      .pillbar { justify-content: flex-start; }
-      th:nth-child(6), td:nth-child(6) { display: none; } /* hide year col on narrow screens */
+    @media (max-width: 900px){
+      .pills{ justify-content:flex-start; }
+      th:nth-child(6), td:nth-child(6){ display:none; }
+      th:nth-child(5), td:nth-child(5){ display:none; }
     }
   </style>
 </head>
@@ -179,15 +184,14 @@
 <body>
   <div class="wrap">
     <header>
-      <div class="brand">
+      <div>
         <h1>Record list</h1>
-        <p>
-          {{ filename|e }} — <b>{{ included_count }}</b> included / <b>{{ count }}</b> total
-          <span class="muted">• excluded records will not export</span>
+        <p class="sub">
+          <b>{{ filename|e }}</b> — {{ included_count }} included / {{ count }} total
+          <span style="color:#64748b;">• excluded records will not export</span>
         </p>
       </div>
-
-      <div class="pillbar">
+      <div class="pills">
         <span class="pill">Included: {{ included_count }}</span>
         <span class="pill">Total: {{ count }}</span>
         <span class="pill">Exports: <code>.mrc</code> / <code>.mrk</code></span>
@@ -210,7 +214,7 @@
         <a class="btn" href="{{ url_for('clear') }}">Clear session</a>
       </div>
 
-      <p class="small" style="margin-top:.75rem;">
+      <p class="small" style="margin:0 0 .5rem;">
         Click a record number to view it. Use <b>Remove</b> to exclude a record from exports (you can restore later).
       </p>
 
@@ -218,7 +222,7 @@
         <thead>
           <tr>
             <th style="width:4rem;">#</th>
-            <th style="width:7rem;">Status</th>
+            <th style="width:7.5rem;">Status</th>
             <th style="width:10rem;">001</th>
             <th>245</th>
             <th style="width:16rem;">100/110</th>
@@ -232,9 +236,9 @@
               <td><a href="{{ url_for('record_detail', i=r.i) }}">{{ r.i }}</a></td>
               <td>
                 {% if r.included %}
-                  <span class="pill-status pill-in">Included</span>
+                  <span class="status in">Included</span>
                 {% else %}
-                  <span class="pill-status pill-out">Excluded</span>
+                  <span class="status out">Excluded</span>
                 {% endif %}
               </td>
               <td>{{ r["001"]|e }}</td>

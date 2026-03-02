@@ -5,67 +5,135 @@
   <title>Record {{ i }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
-    code, pre { background: #f6f6f6; padding: .2rem .35rem; border-radius: 6px; }
-    .field { padding: .35rem 0; border-bottom: 1px solid #eee; }
-    .tag { display: inline-block; min-width: 3.5rem; font-weight: 700; }
-    .muted { color: #555; }
-    .pill { display:inline-block; padding: .1rem .45rem; border-radius: 999px; font-size: 12px; }
-    .in { background:#eefbf0; border:1px solid #bfe8c6; }
-    .out { background:#fff1f1; border:1px solid #f0b4b4; }
-    form { display:inline; margin:0; }
-    button { padding: .25rem .5rem; }
+    :root{
+      --bg:#f6f8fb; --card:#fff; --text:#0f172a; --muted:#475569;
+      --border:#e2e8f0; --shadow:0 12px 30px rgba(15,23,42,0.08);
+      --code:#f1f5f9;
+      --ok-bg:#ecfdf5; --ok-bd:#a7f3d0;
+      --err-bg:#fef2f2; --err-bd:#fecaca;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1000px 600px at 15% 0%, rgba(37,99,235,0.10), transparent 60%),
+                  radial-gradient(1000px 600px at 85% 10%, rgba(14,165,233,0.10), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+    }
+    .wrap{ max-width: 1000px; margin:0 auto; padding:2.25rem 1rem 3rem; }
+    .top{
+      display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:1rem;
+    }
+    h1{ margin:0; font-size:1.7rem; letter-spacing:-0.02em; }
+    .sub{ margin:.4rem 0 0; color: var(--muted); line-height:1.45; }
+    .card{
+      background: var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow: var(--shadow);
+      padding: 1rem 1.05rem;
+    }
+    .actions{ display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.75rem; }
+    .btn{
+      appearance:none;
+      border: 1px solid var(--border);
+      background:#fff;
+      color: var(--text);
+      border-radius:12px;
+      padding:.55rem .75rem;
+      font-weight:650;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:.5rem;
+      box-shadow:0 2px 10px rgba(15,23,42,0.05);
+      transition: transform .05s ease, box-shadow .15s ease, border-color .15s ease;
+      line-height:1.1;
+    }
+    .btn:hover{ border-color:#cbd5e1; box-shadow:0 10px 22px rgba(15,23,42,0.08); }
+    .btn:active{ transform: translateY(1px); }
+    .status{
+      display:inline-block; padding:.12rem .5rem; border-radius:999px; font-size:12px;
+      border:1px solid var(--border); background:#f8fafc; color:#334155; font-weight:650;
+      margin-left:.5rem;
+    }
+    .status.in{ background: var(--ok-bg); border-color: var(--ok-bd); color:#065f46; }
+    .status.out{ background: var(--err-bg); border-color: var(--err-bd); color:#7f1d1d; }
+
+    h2{ margin: 1rem 0 .5rem; font-size:1.05rem; }
+    .field{
+      padding:.45rem 0;
+      border-bottom:1px solid var(--border);
+      line-height:1.4;
+    }
+    .tag{ display:inline-block; min-width: 3.7rem; font-weight: 800; color:#0f172a; }
+    .inds{ color: var(--muted); font-size:.92rem; margin-left:.25rem; }
+    code{
+      background: var(--code);
+      border:1px solid var(--border);
+      padding:.08rem .35rem;
+      border-radius:8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:.95em;
+    }
+    .subfield{ margin-left:.35rem; }
+    form{ display:inline; margin:0; }
   </style>
 </head>
+
 <body>
-  <p><a href="{{ url_for('records') }}">&larr; Record list</a></p>
-
-  <h1>
-    Record {{ i }}
-    <span class="muted">/ {{ count - 1 }}</span>
-    {% if included %}
-      <span class="pill in">Included</span>
-    {% else %}
-      <span class="pill out">Excluded</span>
-    {% endif %}
-  </h1>
-
-  <p class="muted">{{ filename|e }}</p>
-
-  <p>
-    <a href="{{ url_for('record_raw', i=i) }}">Edit raw text</a>
-    &nbsp;|&nbsp;
-    <a href="{{ url_for('download_record_mrc', i=i) }}">Download this record (.mrc)</a>
-    &nbsp;|&nbsp;
-    <a href="{{ url_for('download_record_mrk', i=i) }}">Download this record (.mrk)</a>
-  </p>
-
-  <p>
-    {% if included %}
-      <form method="post" action="{{ url_for('record_exclude', i=i) }}">
-        <button type="submit">Remove from exports</button>
-      </form>
-    {% else %}
-      <form method="post" action="{{ url_for('record_include', i=i) }}">
-        <button type="submit">Restore to exports</button>
-      </form>
-    {% endif %}
-  </p>
-
-  <h2>Control fields</h2>
-  {% for tag, val in control_fields %}
-    <div class="field"><span class="tag">{{ tag|e }}</span> <code>{{ val|e }}</code></div>
-  {% endfor %}
-
-  <h2>Data fields</h2>
-  {% for tag, ind1, ind2, subs in data_fields %}
-    <div class="field">
-      <span class="tag">{{ tag|e }}</span>
-      <span class="muted">[{{ ind1|e }} {{ ind2|e }}]</span>
-      {% for code, val in subs %}
-        <span><code>${{ code|e }}</code> {{ val|e }}</span>
-      {% endfor %}
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>
+          Record {{ i }} <span style="color:#64748b; font-weight:600;">/ {{ count - 1 }}</span>
+          {% if included %}
+            <span class="status in">Included</span>
+          {% else %}
+            <span class="status out">Excluded</span>
+          {% endif %}
+        </h1>
+        <p class="sub">{{ filename|e }}</p>
+      </div>
+      <div>
+        <a class="btn" href="{{ url_for('records') }}">&larr; Record list</a>
+      </div>
     </div>
-  {% endfor %}
+
+    <section class="card">
+      <div class="actions">
+        <a class="btn" href="{{ url_for('record_raw', i=i) }}">Edit raw text</a>
+        <a class="btn" href="{{ url_for('download_record_mrc', i=i) }}">Download this record (.mrc)</a>
+        <a class="btn" href="{{ url_for('download_record_mrk', i=i) }}">Download this record (.mrk)</a>
+        {% if included %}
+          <form method="post" action="{{ url_for('record_exclude', i=i) }}">
+            <button class="btn" type="submit">Remove from exports</button>
+          </form>
+        {% else %}
+          <form method="post" action="{{ url_for('record_include', i=i) }}">
+            <button class="btn" type="submit">Restore to exports</button>
+          </form>
+        {% endif %}
+      </div>
+
+      <h2>Control fields</h2>
+      {% for tag, val in control_fields %}
+        <div class="field"><span class="tag">{{ tag|e }}</span> <code>{{ val|e }}</code></div>
+      {% endfor %}
+
+      <h2>Data fields</h2>
+      {% for tag, ind1, ind2, subs in data_fields %}
+        <div class="field">
+          <span class="tag">{{ tag|e }}</span>
+          <span class="inds">[{{ ind1|e }} {{ ind2|e }}]</span>
+          {% for code, val in subs %}
+            <span class="subfield"><code>${{ code|e }}</code> {{ val|e }}</span>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </section>
+  </div>
 </body>
 </html>
