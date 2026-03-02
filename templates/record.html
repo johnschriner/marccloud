@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Record {{ i }} - {{ filename|e }}</title>
+  <title>Record {{ i }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
@@ -10,14 +10,46 @@
     .field { padding: .35rem 0; border-bottom: 1px solid #eee; }
     .tag { display: inline-block; min-width: 3.5rem; font-weight: 700; }
     .muted { color: #555; }
+    .pill { display:inline-block; padding: .1rem .45rem; border-radius: 999px; font-size: 12px; }
+    .in { background:#eefbf0; border:1px solid #bfe8c6; }
+    .out { background:#fff1f1; border:1px solid #f0b4b4; }
+    form { display:inline; margin:0; }
+    button { padding: .25rem .5rem; }
   </style>
 </head>
 <body>
   <p><a href="{{ url_for('records') }}">&larr; Record list</a></p>
-  <h1>Record {{ i }} <span class="muted">/ {{ count - 1 }}</span></h1>
+
+  <h1>
+    Record {{ i }}
+    <span class="muted">/ {{ count - 1 }}</span>
+    {% if included %}
+      <span class="pill in">Included</span>
+    {% else %}
+      <span class="pill out">Excluded</span>
+    {% endif %}
+  </h1>
+
   <p class="muted">{{ filename|e }}</p>
+
   <p>
-  <a href="{{ url_for('record_raw', i=i) }}">Edit raw text</a>
+    <a href="{{ url_for('record_raw', i=i) }}">Edit raw text</a>
+    &nbsp;|&nbsp;
+    <a href="{{ url_for('download_record_mrc', i=i) }}">Download this record (.mrc)</a>
+    &nbsp;|&nbsp;
+    <a href="{{ url_for('download_record_mrk', i=i) }}">Download this record (.mrk)</a>
+  </p>
+
+  <p>
+    {% if included %}
+      <form method="post" action="{{ url_for('record_exclude', i=i) }}">
+        <button type="submit">Remove from exports</button>
+      </form>
+    {% else %}
+      <form method="post" action="{{ url_for('record_include', i=i) }}">
+        <button type="submit">Restore to exports</button>
+      </form>
+    {% endif %}
   </p>
 
   <h2>Control fields</h2>

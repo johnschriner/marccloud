@@ -2,7 +2,7 @@ import os
 import tempfile
 from datetime import datetime
 from io import BytesIO
-from typing import Iterable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from flask import (
     Flask,
@@ -16,6 +16,7 @@ from flask import (
     url_for,
 )
 from pymarc import Field, MARCReader, MARCWriter, Record, Subfield
+
 import marc_store
 
 APP_SECRET = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
@@ -67,15 +68,15 @@ def _iter_subfields(field: Field) -> List[Tuple[str, str]]:
 
     first = subs[0]
 
-    # Case 1: Subfield objects (modern pymarc)
+    # Subfield objects
     if hasattr(first, "code") and hasattr(first, "value"):
         return [(sf.code, sf.value) for sf in subs]  # type: ignore[attr-defined]
 
-    # Case 2: list of tuples
+    # tuples
     if isinstance(first, tuple) and len(first) == 2:
         return [(c, v) for (c, v) in subs]
 
-    # Case 3: flat list
+    # flat list
     if isinstance(first, str):
         out: List[Tuple[str, str]] = []
         for i in range(0, len(subs), 2):
@@ -130,21 +131,12 @@ def best_pub_year(rec: Record) -> str:
 
 def record_to_mrk(rec: Record) -> str:
     """
-    Serialize a pymarc Record into a strict, mrk-like mnemonic format:
-
-      =LDR  <leader>
-      =001  <value>
-      =245  10$aTitle$bSubtitle$cStatement
-
-    Notes:
-    - Indicators are two chars; blanks are spaces.
-    - Literal '$' in values is escaped as '\\$' so parsing is unambiguous.
+    Serialize a Record to strict mrk-like lines.
     """
     lines: List[str] = []
 
-    # pymarc may store leader as a Leader object; force to string
     leader = str(rec.leader) if rec.leader is not None else ""
-    leader = (leader + " " * 24)[:24]  # pad/truncate to exactly 24 chars
+    leader = (leader + " " * 24)[:24]
     lines.append(f"=LDR  {leader}")
 
     # Control fields
@@ -174,18 +166,7 @@ def record_to_mrk(rec: Record) -> str:
 
 def mrk_to_record(text: str) -> Record:
     """
-    Parse the strict mrk-like mnemonic format produced by record_to_mrk().
-
-    Expected lines:
-      =LDR  <leader>
-      =00X  <value>
-      =245  10$a...$b...
-
-    Rules:
-    - Only '=LDR' or numeric tags are accepted.
-    - After '=TAG' must be two spaces.
-    - Data fields must start with two indicator characters after those spaces.
-    - Literal dollars in values must be escaped as '\\$'.
+    Parse the strict mrk-like format produced by record_to_mrk().
     """
     rec = Record(force_utf8=True)
 
@@ -199,12 +180,11 @@ def mrk_to_record(text: str) -> Record:
 
         tag = ln[1:4]
 
-        # Allow LDR explicitly (it's not numeric)
         if tag == "LDR":
             if ln[4:6] != "  ":
                 raise ValueError(f"Bad spacing after tag in line: {ln}")
             body = ln[6:]
-            body = (body + " " * 24)[:24]  # pad/truncate to 24 chars
+            body = (body + " " * 24)[:24]
             rec.leader = body
             continue
 
@@ -216,17 +196,14 @@ def mrk_to_record(text: str) -> Record:
 
         body = ln[6:]
 
-        # Control field
         if int(tag) < 10:
             rec.add_field(Field(tag=tag, data=body))
             continue
 
-        # Data field
         ind1 = body[0:1] if len(body) >= 1 else " "
         ind2 = body[1:2] if len(body) >= 2 else " "
         rest = body[2:] if len(body) > 2 else ""
 
-        # ✅ Build Subfield objects (required by your pymarc)
         subfields: List[Subfield] = []
         if rest:
             i = 0
@@ -249,8 +226,7 @@ def mrk_to_record(text: str) -> Record:
                     buf.append(rest[i])
                     i += 1
 
-                val = "".join(buf)
-                subfields.append(Subfield(code=code, value=val))
+                subfields.append(Subfield(code=code, value="".join(buf)))
 
         rec.add_field(Field(tag=tag, indicators=[ind1, ind2], subfields=subfields))
 
@@ -263,8 +239,7 @@ def export_records_as_mrc(records: List[Record]) -> bytes:
     for r in records:
         writer.write(r)
 
-    # ✅ Read bytes before close() (some pymarc versions close the underlying file-like object)
-    bio.seek(0)
+    # Read bytes BEFORE closing (some pymarc versions close the underlying file-like object)
     data = bio.getvalue()
 
     try:
@@ -273,6 +248,7 @@ def export_records_as_mrc(records: List[Record]) -> bytes:
         pass
 
     return data
+
 
 @app.get("/")
 def index():
@@ -286,6 +262,16 @@ def index():
         max_mb=MAX_MB,
         allowed_exts=", ".join(sorted(ALLOWED_EXTS)),
     )
+
+
+@app.get("/clear")
+def clear():
+    sid = session.get("sid")
+    if sid:
+        marc_store.delete(sid)
+        session.pop("sid", None)
+    flash("Cleared current session.", "ok")
+    return redirect(url_for("index"))
 
 
 @app.post("/upload")
@@ -342,10 +328,15 @@ def records():
         return redirect(url_for("index"))
 
     rows = []
+    included_count = 0
     for i, rec in enumerate(stored.records):
+        included = bool(stored.included[i])
+        if included:
+            included_count += 1
         rows.append(
             {
                 "i": i,
+                "included": included,
                 "001": control(rec, "001") or "",
                 "title": best_title(rec),
                 "main": best_main_entry(rec),
@@ -353,7 +344,43 @@ def records():
             }
         )
 
-    return render_template("records.html", filename=stored.filename, count=len(rows), rows=rows)
+    return render_template(
+        "records.html",
+        filename=stored.filename,
+        count=len(rows),
+        included_count=included_count,
+        rows=rows,
+    )
+
+
+@app.post("/record/<int:i>/exclude")
+def record_exclude(i: int):
+    sid = session.get("sid")
+    stored = marc_store.get(sid) if sid else None
+    if not stored:
+        flash("No record set loaded yet.", "error")
+        return redirect(url_for("index"))
+    if i < 0 or i >= len(stored.records):
+        abort(404)
+
+    stored.included[i] = False
+    flash(f"Excluded record {i} from exports.", "ok")
+    return redirect(url_for("records"))
+
+
+@app.post("/record/<int:i>/include")
+def record_include(i: int):
+    sid = session.get("sid")
+    stored = marc_store.get(sid) if sid else None
+    if not stored:
+        flash("No record set loaded yet.", "error")
+        return redirect(url_for("index"))
+    if i < 0 or i >= len(stored.records):
+        abort(404)
+
+    stored.included[i] = True
+    flash(f"Included record {i} in exports.", "ok")
+    return redirect(url_for("records"))
 
 
 @app.get("/record/<int:i>")
@@ -368,6 +395,7 @@ def record_detail(i: int):
         abort(404)
 
     rec = stored.records[i]
+    included = bool(stored.included[i])
 
     control_fields = []
     data_fields = []
@@ -386,6 +414,7 @@ def record_detail(i: int):
         i=i,
         filename=stored.filename,
         count=len(stored.records),
+        included=included,
         control_fields=control_fields,
         data_fields=data_fields,
     )
@@ -403,13 +432,7 @@ def record_raw(i: int):
 
     rec = stored.records[i]
     raw = record_to_mrk(rec)
-    return render_template(
-        "record_raw.html",
-        i=i,
-        filename=stored.filename,
-        count=len(stored.records),
-        raw=raw,
-    )
+    return render_template("record_raw.html", i=i, filename=stored.filename, count=len(stored.records), raw=raw)
 
 
 @app.post("/record/<int:i>/raw")
@@ -427,17 +450,53 @@ def record_raw_save(i: int):
         new_rec = mrk_to_record(raw)
     except Exception as e:
         flash(f"Could not parse your changes: {e}", "error")
-        return render_template(
-            "record_raw.html",
-            i=i,
-            filename=stored.filename,
-            count=len(stored.records),
-            raw=raw,
-        )
+        return render_template("record_raw.html", i=i, filename=stored.filename, count=len(stored.records), raw=raw)
 
     stored.records[i] = new_rec
     flash(f"Saved changes to record {i}.", "ok")
     return redirect(url_for("record_detail", i=i))
+
+
+@app.get("/record/<int:i>/download.mrk")
+def download_record_mrk(i: int):
+    sid = session.get("sid")
+    stored = marc_store.get(sid) if sid else None
+    if not stored:
+        flash("No record set loaded yet.", "error")
+        return redirect(url_for("index"))
+    if i < 0 or i >= len(stored.records):
+        abort(404)
+
+    text = record_to_mrk(stored.records[i])
+    base = os.path.splitext(stored.filename)[0] or "record"
+    outname = f"{base}_record_{i}.mrk"
+    return send_file(
+        BytesIO(text.encode("utf-8")),
+        mimetype="text/plain; charset=utf-8",
+        as_attachment=True,
+        download_name=outname,
+    )
+
+
+@app.get("/record/<int:i>/download.mrc")
+def download_record_mrc(i: int):
+    sid = session.get("sid")
+    stored = marc_store.get(sid) if sid else None
+    if not stored:
+        flash("No record set loaded yet.", "error")
+        return redirect(url_for("index"))
+    if i < 0 or i >= len(stored.records):
+        abort(404)
+
+    data = export_records_as_mrc([stored.records[i]])
+    base = os.path.splitext(stored.filename)[0] or "record"
+    outname = f"{base}_record_{i}.mrc"
+    return send_file(
+        BytesIO(data),
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name=outname,
+    )
 
 
 @app.get("/export.mrc")
@@ -448,7 +507,9 @@ def export_mrc():
         flash("No record set loaded yet.", "error")
         return redirect(url_for("index"))
 
-    data = export_records_as_mrc(stored.records)
+    records_out = [r for r, inc in zip(stored.records, stored.included) if inc]
+    data = export_records_as_mrc(records_out)
+
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     base = os.path.splitext(stored.filename)[0] or "records"
     outname = f"{base}_edited_{ts}.mrc"
@@ -456,6 +517,34 @@ def export_mrc():
     return send_file(
         BytesIO(data),
         mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name=outname,
+    )
+
+
+@app.get("/export.mrk")
+def export_mrk():
+    sid = session.get("sid")
+    stored = marc_store.get(sid) if sid else None
+    if not stored:
+        flash("No record set loaded yet.", "error")
+        return redirect(url_for("index"))
+
+    parts: List[str] = []
+    for rec, inc in zip(stored.records, stored.included):
+        if not inc:
+            continue
+        parts.append(record_to_mrk(rec).rstrip("\n"))
+
+    text = "\n\n".join(parts) + "\n"
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base = os.path.splitext(stored.filename)[0] or "records"
+    outname = f"{base}_edited_{ts}.mrk"
+
+    return send_file(
+        BytesIO(text.encode("utf-8")),
+        mimetype="text/plain; charset=utf-8",
         as_attachment=True,
         download_name=outname,
     )
