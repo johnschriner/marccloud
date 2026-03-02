@@ -1,10 +1,21 @@
 import os
 import tempfile
-from typing import List, Optional
+from datetime import datetime
+from io import BytesIO
+from typing import Iterable, List, Optional, Tuple
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
-from pymarc import MARCReader, Record
-
+from flask import (
+    Flask,
+    abort,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+    url_for,
+)
+from pymarc import Field, MARCReader, MARCWriter, Record, Subfield
 import marc_store
 
 APP_SECRET = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
@@ -12,7 +23,7 @@ APP_SECRET = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
 MAX_RECORDS = int(os.environ.get("MAX_RECORDS", "100"))
 MAX_MB = int(os.environ.get("MAX_UPLOAD_MB", "10"))
 
-ALLOWED_EXTS = {".mrc"}  # Day 1: only .mrc. We'll add .mrk later.
+ALLOWED_EXTS = {".mrc"}  # We'll add .mrk later.
 
 app = Flask(__name__)
 app.secret_key = APP_SECRET
@@ -26,7 +37,12 @@ def _safe_ext(filename: str) -> str:
 def parse_mrc_path(path: str, max_records: int = MAX_RECORDS) -> List[Record]:
     records: List[Record] = []
     with open(path, "rb") as fh:
-        reader = MARCReader(fh, to_unicode=True, force_utf8=True, utf8_handling="ignore")
+        reader = MARCReader(
+            fh,
+            to_unicode=True,
+            force_utf8=True,
+            utf8_handling="ignore",
+        )
         for rec in reader:
             if rec is None:
                 continue
@@ -36,11 +52,44 @@ def parse_mrc_path(path: str, max_records: int = MAX_RECORDS) -> List[Record]:
     return records
 
 
+def _iter_subfields(field: Field) -> List[Tuple[str, str]]:
+    """
+    Yield (code, value) pairs from a pymarc Field in a version-tolerant way.
+
+    Supports:
+    - [Subfield(code='a', value='Title'), ...]
+    - [('a','Title'), ...]
+    - ['a','Title','b','Subtitle', ...]
+    """
+    subs = getattr(field, "subfields", None)
+    if not subs:
+        return []
+
+    first = subs[0]
+
+    # Case 1: Subfield objects (modern pymarc)
+    if hasattr(first, "code") and hasattr(first, "value"):
+        return [(sf.code, sf.value) for sf in subs]  # type: ignore[attr-defined]
+
+    # Case 2: list of tuples
+    if isinstance(first, tuple) and len(first) == 2:
+        return [(c, v) for (c, v) in subs]
+
+    # Case 3: flat list
+    if isinstance(first, str):
+        out: List[Tuple[str, str]] = []
+        for i in range(0, len(subs), 2):
+            if i + 1 < len(subs):
+                out.append((subs[i], subs[i + 1]))
+        return out
+
+    return []
+
+
 def first_subfield(rec: Record, tag: str, code: str) -> Optional[str]:
     f = rec.get_fields(tag)
     if not f:
         return None
-    # tag is a data field here; pymarc fields have get_subfields
     vals = f[0].get_subfields(code)
     return vals[0] if vals else None
 
@@ -69,17 +118,161 @@ def best_main_entry(rec: Record) -> str:
 
 
 def best_pub_year(rec: Record) -> str:
-    # super rough Day 1 approach
     for tag in ("264", "260"):
         c = first_subfield(rec, tag, "c")
         if c:
             return c[:40]
-    # fallback: 008 positions 7-10 (date1)
     f008 = control(rec, "008")
     if f008 and len(f008) >= 11:
         return f008[7:11]
     return ""
 
+
+def record_to_mrk(rec: Record) -> str:
+    """
+    Serialize a pymarc Record into a strict, mrk-like mnemonic format:
+
+      =LDR  <leader>
+      =001  <value>
+      =245  10$aTitle$bSubtitle$cStatement
+
+    Notes:
+    - Indicators are two chars; blanks are spaces.
+    - Literal '$' in values is escaped as '\\$' so parsing is unambiguous.
+    """
+    lines: List[str] = []
+
+    # pymarc may store leader as a Leader object; force to string
+    leader = str(rec.leader) if rec.leader is not None else ""
+    leader = (leader + " " * 24)[:24]  # pad/truncate to exactly 24 chars
+    lines.append(f"=LDR  {leader}")
+
+    # Control fields
+    for f in rec.get_fields():
+        if f.is_control_field():
+            lines.append(f"={f.tag}  {f.value()}")
+
+    # Data fields
+    for f in rec.get_fields():
+        if f.is_control_field():
+            continue
+
+        ind1 = f.indicators[0] if f.indicators and len(f.indicators) > 0 else " "
+        ind2 = f.indicators[1] if f.indicators and len(f.indicators) > 1 else " "
+        ind1 = (ind1 or " ")[:1]
+        ind2 = (ind2 or " ")[:1]
+
+        parts: List[str] = []
+        for code, val in _iter_subfields(f):
+            val = (val or "").replace("$", r"\$")
+            parts.append(f"${code}{val}")
+
+        lines.append(f"={f.tag}  {ind1}{ind2}{''.join(parts)}")
+
+    return "\n".join(lines) + "\n"
+
+
+def mrk_to_record(text: str) -> Record:
+    """
+    Parse the strict mrk-like mnemonic format produced by record_to_mrk().
+
+    Expected lines:
+      =LDR  <leader>
+      =00X  <value>
+      =245  10$a...$b...
+
+    Rules:
+    - Only '=LDR' or numeric tags are accepted.
+    - After '=TAG' must be two spaces.
+    - Data fields must start with two indicator characters after those spaces.
+    - Literal dollars in values must be escaped as '\\$'.
+    """
+    rec = Record(force_utf8=True)
+
+    lines = [ln.rstrip("\n") for ln in (text or "").splitlines()]
+    for ln in lines:
+        ln = ln.rstrip()
+        if not ln:
+            continue
+        if not ln.startswith("=") or len(ln) < 6:
+            raise ValueError(f"Bad line (expected '=TAG  ...'): {ln}")
+
+        tag = ln[1:4]
+
+        # Allow LDR explicitly (it's not numeric)
+        if tag == "LDR":
+            if ln[4:6] != "  ":
+                raise ValueError(f"Bad spacing after tag in line: {ln}")
+            body = ln[6:]
+            body = (body + " " * 24)[:24]  # pad/truncate to 24 chars
+            rec.leader = body
+            continue
+
+        if not tag.isdigit():
+            raise ValueError(f"Bad tag: {tag}")
+
+        if ln[4:6] != "  ":
+            raise ValueError(f"Bad spacing after tag in line: {ln}")
+
+        body = ln[6:]
+
+        # Control field
+        if int(tag) < 10:
+            rec.add_field(Field(tag=tag, data=body))
+            continue
+
+        # Data field
+        ind1 = body[0:1] if len(body) >= 1 else " "
+        ind2 = body[1:2] if len(body) >= 2 else " "
+        rest = body[2:] if len(body) > 2 else ""
+
+        # ✅ Build Subfield objects (required by your pymarc)
+        subfields: List[Subfield] = []
+        if rest:
+            i = 0
+            while i < len(rest):
+                if rest[i] != "$":
+                    raise ValueError(f"Expected '$' starting subfield in line: {ln}")
+                if i + 1 >= len(rest):
+                    raise ValueError(f"Dangling '$' at end of line: {ln}")
+                code = rest[i + 1]
+                i += 2
+
+                buf: List[str] = []
+                while i < len(rest):
+                    if rest[i] == "\\" and i + 1 < len(rest) and rest[i + 1] == "$":
+                        buf.append("$")
+                        i += 2
+                        continue
+                    if rest[i] == "$":
+                        break
+                    buf.append(rest[i])
+                    i += 1
+
+                val = "".join(buf)
+                subfields.append(Subfield(code=code, value=val))
+
+        rec.add_field(Field(tag=tag, indicators=[ind1, ind2], subfields=subfields))
+
+    return rec
+
+
+def export_records_as_mrc(records: List[Record]) -> bytes:
+    bio = BytesIO()
+    writer = MARCWriter(bio)
+    for r in records:
+        writer.write(r)
+
+    # ✅ Read bytes before close() (some pymarc versions close the underlying file-like object)
+    bio.seek(0)
+    data = bio.getvalue()
+
+    try:
+        writer.close()
+    except Exception:
+        pass
+
+    return data
 
 @app.get("/")
 def index():
@@ -106,10 +299,12 @@ def upload():
 
     ext = _safe_ext(f.filename)
     if ext not in ALLOWED_EXTS:
-        flash(f"Unsupported file type: {ext}. Day 1 supports: {', '.join(sorted(ALLOWED_EXTS))}", "error")
+        flash(
+            f"Unsupported file type: {ext}. Supported: {', '.join(sorted(ALLOWED_EXTS))}",
+            "error",
+        )
         return redirect(url_for("index"))
 
-    # Write to a temp file then parse (don’t keep uploads around)
     fd, tmp_path = tempfile.mkstemp(prefix="upload_", suffix=ext)
     os.close(fd)
     try:
@@ -174,9 +369,6 @@ def record_detail(i: int):
 
     rec = stored.records[i]
 
-    # Build a simple display list:
-    # - control fields first
-    # - then data fields with indicators + subfields
     control_fields = []
     data_fields = []
 
@@ -184,10 +376,10 @@ def record_detail(i: int):
         if field.is_control_field():
             control_fields.append((field.tag, field.value()))
         else:
-            subs = []
-            for code, val in field.subfields:
-                subs.append((code, val))
-            data_fields.append((field.tag, field.indicators[0], field.indicators[1], subs))
+            subs = _iter_subfields(field)
+            ind1 = field.indicators[0] if field.indicators and len(field.indicators) > 0 else " "
+            ind2 = field.indicators[1] if field.indicators and len(field.indicators) > 1 else " "
+            data_fields.append((field.tag, ind1, ind2, subs))
 
     return render_template(
         "record.html",
@@ -196,6 +388,76 @@ def record_detail(i: int):
         count=len(stored.records),
         control_fields=control_fields,
         data_fields=data_fields,
+    )
+
+
+@app.get("/record/<int:i>/raw")
+def record_raw(i: int):
+    sid = session.get("sid")
+    stored = marc_store.get(sid) if sid else None
+    if not stored:
+        flash("No record set loaded yet.", "error")
+        return redirect(url_for("index"))
+    if i < 0 or i >= len(stored.records):
+        abort(404)
+
+    rec = stored.records[i]
+    raw = record_to_mrk(rec)
+    return render_template(
+        "record_raw.html",
+        i=i,
+        filename=stored.filename,
+        count=len(stored.records),
+        raw=raw,
+    )
+
+
+@app.post("/record/<int:i>/raw")
+def record_raw_save(i: int):
+    sid = session.get("sid")
+    stored = marc_store.get(sid) if sid else None
+    if not stored:
+        flash("No record set loaded yet.", "error")
+        return redirect(url_for("index"))
+    if i < 0 or i >= len(stored.records):
+        abort(404)
+
+    raw = request.form.get("raw", "")
+    try:
+        new_rec = mrk_to_record(raw)
+    except Exception as e:
+        flash(f"Could not parse your changes: {e}", "error")
+        return render_template(
+            "record_raw.html",
+            i=i,
+            filename=stored.filename,
+            count=len(stored.records),
+            raw=raw,
+        )
+
+    stored.records[i] = new_rec
+    flash(f"Saved changes to record {i}.", "ok")
+    return redirect(url_for("record_detail", i=i))
+
+
+@app.get("/export.mrc")
+def export_mrc():
+    sid = session.get("sid")
+    stored = marc_store.get(sid) if sid else None
+    if not stored:
+        flash("No record set loaded yet.", "error")
+        return redirect(url_for("index"))
+
+    data = export_records_as_mrc(stored.records)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base = os.path.splitext(stored.filename)[0] or "records"
+    outname = f"{base}_edited_{ts}.mrc"
+
+    return send_file(
+        BytesIO(data),
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name=outname,
     )
 
 

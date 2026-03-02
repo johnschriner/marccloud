@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Raw edit {{ i }} - {{ filename|e }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    pre { background: #f6f6f6; }
+    ul { padding-left: 1.2rem; }
+    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+    textarea { width: 100%; min-height: 60vh; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+    .muted { color: #555; }
+    .flash { padding: .75rem 1rem; border-radius: 8px; margin: .75rem 0; }
+    .ok { background: #eefbf0; border: 1px solid #bfe8c6; }
+    .error { background: #fff1f1; border: 1px solid #f0b4b4; }
+    button { padding: .5rem .75rem; }
+  </style>
+</head>
+<body>
+  <p>
+    <a href="{{ url_for('record_detail', i=i) }}">&larr; Record view</a>
+    &nbsp;|&nbsp;
+    <a href="{{ url_for('records') }}">Record list</a>
+  </p>
+
+  <h1>Raw edit: Record {{ i }} <span class="muted">/ {{ count - 1 }}</span></h1>
+  <p class="muted">{{ filename|e }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="flash {{ cat|e }}">{{ msg|e }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form method="post" action="{{ url_for('record_raw_save', i=i) }}">
+    <textarea name="raw" spellcheck="false">{{ raw|e }}</textarea>
+    <p>
+      <button type="submit">Save changes</button>
+    </p>
+  </form>
+
+  <div class="muted" style="margin-top: 1rem; line-height: 1.5;">
+  <strong>Format notes</strong>
+  <ul style="margin: .5rem 0 0 1.25rem;">
+    <li>Each line starts with <code>=TAG␠␠</code> (tag + two spaces).</li>
+    <li>Data fields include two indicators, then subfields:</li>
+  </ul>
+
+  <pre style="margin: .5rem 0; padding: .75rem; border-radius: 8px; overflow:auto;">=245␠␠10$aTitle$bSubtitle$cStatement of responsibility</pre>
+
+  <ul style="margin: 0 0 0 1.25rem;">
+    <li>Escape a literal dollar sign in a value as <code>\$</code>.</li>
+  </ul>
+</div>
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>MARC Mini Editor (Day 1)</title>
+  <title>MARCCloud</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
@@ -16,8 +16,8 @@
   </style>
 </head>
 <body>
-  <h1>MARC Mini Editor</h1>
-  <p class="muted">Day 1: upload <b>.mrc</b>, parse up to {{ max_records }} records, browse.</p>
+  <h1>MARCCloud</h1>
+  <p class="muted">Upload a <b>.mrc</b> file (up to {{ max_records }} records) to browse and edit in your browser.</p>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -38,7 +38,11 @@
 
   {% if stored %}
     <p>Current session file: <b>{{ stored.filename|e }}</b> ({{ stored.records|length }} records)</p>
-    <p><a href="{{ url_for('records') }}">Go to record list</a></p>
+    <p>
+      <a href="{{ url_for('records') }}">Go to record list</a>
+      &nbsp;|&nbsp;
+      <a href="{{ url_for('export_mrc') }}">Export .mrc</a>
+    </p>
   {% endif %}
 </body>
 </html>

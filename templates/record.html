@@ -16,6 +16,9 @@
   <p><a href="{{ url_for('records') }}">&larr; Record list</a></p>
   <h1>Record {{ i }} <span class="muted">/ {{ count - 1 }}</span></h1>
   <p class="muted">{{ filename|e }}</p>
+  <p>
+  <a href="{{ url_for('record_raw', i=i) }}">Edit raw text</a>
+  </p>
 
   <h2>Control fields</h2>
   {% for tag, val in control_fields %}
