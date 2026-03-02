@@ -4,87 +4,259 @@
   <meta charset="utf-8" />
   <title>Records</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
-  body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: .5rem; border-bottom: 1px solid #eee; vertical-align: top; }
-  th { text-align: left; }
-  .muted { color: #555; }
-  .flash { padding: .75rem 1rem; border-radius: 8px; margin: .75rem 0; }
-  .ok { background: #eefbf0; border: 1px solid #bfe8c6; }
-  .error { background: #fff1f1; border: 1px solid #f0b4b4; }
-  tbody tr:nth-child(even) { background: #fafafa; }
-  tbody tr:hover { background: #eef6ff; }
-  .pill { display:inline-block; padding: .1rem .45rem; border-radius: 999px; font-size: 12px; }
-  .in { background:#eefbf0; border:1px solid #bfe8c6; }
-  .out { background:#fff1f1; border:1px solid #f0b4b4; }
-  form { margin: 0; }
-  button { padding: .25rem .5rem; }
+    :root{
+      --bg: #0b1220;
+      --panel: rgba(255,255,255,0.06);
+      --panel-2: rgba(255,255,255,0.09);
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.70);
+      --border: rgba(255,255,255,0.12);
+      --shadow: 0 18px 60px rgba(0,0,0,0.35);
+      --ok-bg: rgba(16,185,129,0.14);
+      --ok-bd: rgba(16,185,129,0.35);
+      --err-bg: rgba(239,68,68,0.14);
+      --err-bd: rgba(239,68,68,0.35);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 500px at 10% 10%, rgba(125,211,252,0.18), transparent 60%),
+        radial-gradient(900px 500px at 90% 20%, rgba(167,139,250,0.16), transparent 55%),
+        radial-gradient(900px 500px at 50% 90%, rgba(34,211,238,0.10), transparent 60%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.25rem 1rem 3rem;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.9rem;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+    .brand p {
+      margin: .35rem 0 0;
+      color: var(--muted);
+      max-width: 70ch;
+    }
+
+    .pillbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      justify-content: flex-end;
+      margin-top: .15rem;
+    }
+    .pill {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: .35rem .6rem;
+      font-size: .85rem;
+      white-space: nowrap;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 1rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .flash {
+      padding: .75rem .9rem;
+      border-radius: 12px;
+      margin: .75rem 0;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+    }
+    .flash.ok { background: var(--ok-bg); border-color: var(--ok-bd); }
+    .flash.error { background: var(--err-bg); border-color: var(--err-bd); }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .6rem;
+      margin-top: .8rem;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      border-radius: 12px;
+      padding: .55rem .75rem;
+      font-weight: 650;
+      cursor: pointer;
+      transition: transform .05s ease, background .15s ease, border-color .15s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      user-select: none;
+      line-height: 1.1;
+    }
+    .btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.26); }
+    .btn:active { transform: translateY(1px); }
+
+    .small { font-size: .92rem; color: var(--muted); line-height: 1.35; }
+    .muted { color: var(--muted); }
+
+    /* Table styling */
+    table { width: 100%; border-collapse: collapse; margin-top: .75rem; }
+    th, td { padding: .6rem .55rem; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
+    th { text-align: left; font-size: .9rem; color: rgba(255,255,255,0.78); font-weight: 700; }
+    tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+    tbody tr:hover { background: rgba(125,211,252,0.08); }
+
+    a { color: rgba(255,255,255,0.88); }
+    a:hover { color: rgba(255,255,255,1.0); }
+
+    .pill-status {
+      display: inline-block;
+      padding: .12rem .5rem;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.75);
+    }
+    .pill-in  { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.30); color: rgba(255,255,255,0.88); }
+    .pill-out { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.30); color: rgba(255,255,255,0.88); }
+
+    form { margin: 0; }
+    .btn-mini {
+      padding: .35rem .55rem;
+      border-radius: 10px;
+      font-weight: 650;
+      font-size: .9rem;
+    }
+
+    /* Dim excluded rows a bit */
+    tr.excluded td { opacity: 0.72; }
+    tr.excluded td a { opacity: 0.92; }
+
+    code {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: .08rem .35rem;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .95em;
+      color: rgba(255,255,255,0.88);
+    }
+
+    @media (max-width: 900px) {
+      .pillbar { justify-content: flex-start; }
+      th:nth-child(6), td:nth-child(6) { display: none; } /* hide year col on narrow screens */
+    }
   </style>
 </head>
+
 <body>
-  <p>
-    <a href="{{ url_for('index') }}">&larr; Upload</a>
-    &nbsp;|&nbsp;
-    <a href="{{ url_for('export_mrc') }}">Export .mrc</a>
-    &nbsp;|&nbsp;
-    <a href="{{ url_for('export_mrk') }}">Export .mrk</a>
-    &nbsp;|&nbsp;
-    <a href="{{ url_for('clear') }}">Clear session</a>
-  </p>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <h1>Record list</h1>
+        <p>
+          {{ filename|e }} — <b>{{ included_count }}</b> included / <b>{{ count }}</b> total
+          <span class="muted">• excluded records will not export</span>
+        </p>
+      </div>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for cat, msg in messages %}
-        <div class="flash {{ cat|e }}">{{ msg|e }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
+      <div class="pillbar">
+        <span class="pill">Included: {{ included_count }}</span>
+        <span class="pill">Total: {{ count }}</span>
+        <span class="pill">Exports: <code>.mrc</code> / <code>.mrk</code></span>
+      </div>
+    </header>
 
-  <h1>Record list ({{ count }})</h1>
-  <p class="muted">{{ filename|e }} — {{ included_count }} included / {{ count }} total</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="flash {{ cat|e }}">{{ msg|e }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
 
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Status</th>
-        <th>001</th>
-        <th>245</th>
-        <th>100/110</th>
-        <th>260/264/008</th>
-        <th>Export</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-        <tr>
-          <td><a href="{{ url_for('record_detail', i=r.i) }}">{{ r.i }}</a></td>
-          <td>
-            {% if r.included %}
-              <span class="pill in">Included</span>
-            {% else %}
-              <span class="pill out">Excluded</span>
-            {% endif %}
-          </td>
-          <td>{{ r["001"]|e }}</td>
-          <td>{{ r["title"]|e }}</td>
-          <td>{{ r["main"]|e }}</td>
-          <td>{{ r["year"]|e }}</td>
-          <td>
-            {% if r.included %}
-              <form method="post" action="{{ url_for('record_exclude', i=r.i) }}">
-                <button type="submit">Remove</button>
-              </form>
-            {% else %}
-              <form method="post" action="{{ url_for('record_include', i=r.i) }}">
-                <button type="submit">Restore</button>
-              </form>
-            {% endif %}
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+    <section class="card">
+      <div class="actions">
+        <a class="btn" href="{{ url_for('index') }}">&larr; Upload</a>
+        <a class="btn" href="{{ url_for('export_mrc') }}">Export .mrc</a>
+        <a class="btn" href="{{ url_for('export_mrk') }}">Export .mrk</a>
+        <a class="btn" href="{{ url_for('clear') }}">Clear session</a>
+      </div>
+
+      <p class="small" style="margin-top:.75rem;">
+        Click a record number to view it. Use <b>Remove</b> to exclude a record from exports (you can restore later).
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:4rem;">#</th>
+            <th style="width:7rem;">Status</th>
+            <th style="width:10rem;">001</th>
+            <th>245</th>
+            <th style="width:16rem;">100/110</th>
+            <th style="width:10rem;">260/264/008</th>
+            <th style="width:7rem;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr class="{% if not r.included %}excluded{% endif %}">
+              <td><a href="{{ url_for('record_detail', i=r.i) }}">{{ r.i }}</a></td>
+              <td>
+                {% if r.included %}
+                  <span class="pill-status pill-in">Included</span>
+                {% else %}
+                  <span class="pill-status pill-out">Excluded</span>
+                {% endif %}
+              </td>
+              <td>{{ r["001"]|e }}</td>
+              <td>{{ r["title"]|e }}</td>
+              <td>{{ r["main"]|e }}</td>
+              <td>{{ r["year"]|e }}</td>
+              <td>
+                {% if r.included %}
+                  <form method="post" action="{{ url_for('record_exclude', i=r.i) }}">
+                    <button class="btn btn-mini" type="submit">Remove</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{{ url_for('record_include', i=r.i) }}">
+                    <button class="btn btn-mini" type="submit">Restore</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
 </body>
 </html>
