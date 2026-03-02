@@ -30,6 +30,10 @@ app = Flask(__name__)
 app.secret_key = APP_SECRET
 app.config["MAX_CONTENT_LENGTH"] = MAX_MB * 1024 * 1024  # upload cap
 
+@app.before_request
+def _purge_old_sessions():
+    # Keep in-memory store from growing if users only hit /records etc.
+    marc_store.purge_older_than(3600)
 
 def _safe_ext(filename: str) -> str:
     return os.path.splitext(filename or "")[1].lower()
