@@ -130,7 +130,7 @@
 
     <section class="card">
       <form method="post" action="{{ url_for('record_raw_save', i=i) }}">
-        <textarea name="raw" spellcheck="false">{{ raw|e }}</textarea>
+        <textarea id="raw-editor" name="raw" spellcheck="false">{{ raw|e }}</textarea>
 
         <div class="actions">
           <button class="btn primary" type="submit">Save changes</button>
@@ -153,5 +153,42 @@
       </div>
     </section>
   </div>
+
+  <script>
+    (function () {
+      const textarea = document.getElementById("raw-editor");
+      if (!textarea) return;
+
+      const storageKey = "marccloud_raw_draft_{{ i }}";
+      const saved = localStorage.getItem(storageKey);
+
+      if (saved && saved !== textarea.value) {
+        const restore = confirm("A saved local draft was found for this record. Restore it?");
+        if (restore) {
+          textarea.value = saved;
+        }
+      }
+
+      setInterval(() => {
+        localStorage.setItem(storageKey, textarea.value);
+      }, 3000);
+
+      let initialValue = textarea.value;
+
+      window.addEventListener("beforeunload", function (e) {
+        if (textarea.value !== initialValue) {
+          e.preventDefault();
+          e.returnValue = "";
+        }
+      });
+
+      const form = textarea.closest("form");
+      if (form) {
+        form.addEventListener("submit", function () {
+          localStorage.removeItem(storageKey);
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

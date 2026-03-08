@@ -32,8 +32,13 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_MB * 1024 * 1024  # upload cap
 
 @app.before_request
 def _purge_old_sessions():
-    # Keep in-memory store from growing if users only hit /records etc.
-    marc_store.purge_older_than(3600)
+    # Purge only sessions that have been inactive for 4 hours
+    marc_store.purge_older_than(14400)
+
+    # Keep active sessions alive
+    sid = session.get("sid")
+    if sid:
+        marc_store.touch(sid)
 
 def _safe_ext(filename: str) -> str:
     return os.path.splitext(filename or "")[1].lower()
@@ -265,7 +270,6 @@ def export_records_as_mrc(records: List[Record]) -> bytes:
 
 @app.get("/")
 def index():
-    marc_store.purge_older_than(3600)
     sid = session.get("sid")
     stored = marc_store.get(sid) if sid else None
     return render_template(
@@ -289,8 +293,6 @@ def clear():
 
 @app.post("/upload")
 def upload():
-    marc_store.purge_older_than(3600)
-
     f = request.files.get("file")
     if not f or not f.filename:
         flash("Please choose a .mrc file to upload.", "error")
